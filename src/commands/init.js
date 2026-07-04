@@ -103,7 +103,9 @@ export async function initCommand(options) {
   // --- Orbit cache ---
   actions.push(await writeFileIfAbsent(join(root, ".orbit/cache.json"), "{}\n", options));
   actions.push(await writeFileIfAbsent(join(root, ".orbit/skill-registry.json"), renderRegistry(indexRecords), options));
-  actions.push(await upsertGitignoreLine(root, ".orbit/"));
+  // Only the cache is ignored. The skill registry is generated-but-versioned (like the index):
+  // `orbit sync --check` in CI/fresh clones needs it present and current to pass.
+  actions.push(await upsertGitignoreLine(root, ".orbit/cache.json"));
 
   // --- Platform-native skill + subagent files ---
   // Delegated roles become real subagents on agent-capable platforms (Claude, OpenCode)
