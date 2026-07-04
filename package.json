@@ -1,0 +1,23 @@
+{
+  "name": "orbit-harness",
+  "version": "0.1.0",
+  "description": "Orbit is a portable agent harness scaffold for OpenSpec-driven SDD workflows.",
+  "type": "module",
+  "bin": {
+    "orbit": "./bin/orbit.js"
+  },
+  "scripts": {
+    "orbit": "node ./bin/orbit.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "UNLICENSED",
+  "files": [
+    "bin",
+    "src",
+    "docs",
+    "README.md"
+  ]
+}
