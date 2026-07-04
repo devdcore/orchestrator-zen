@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, mkdir, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
@@ -480,7 +480,7 @@ rules:
     try {
       await execFileAsync(process.execPath, [bin, "init", "--cwd", dir, SKIP_OPENSPEC]);
 
-      await mkdir(join(dir, ".claude/skills/create-payment-flow"), { recursive: true });
+      await mkdir(join(dir, ".claude/skills/create-payment-flow/references"), { recursive: true });
       await writeFile(
         join(dir, ".claude/skills/create-payment-flow/SKILL.md"),
         `---
@@ -497,6 +497,11 @@ Body of the custom skill. Use /opsx:apply during implementation.
 `,
         "utf8",
       );
+      await writeFile(
+        join(dir, ".claude/skills/create-payment-flow/references/provider-rules.md"),
+        "Use /opsx:apply from CLAUDE.md when provider rules change.\n",
+        "utf8",
+      );
 
       await execFileAsync(process.execPath, [bin, "sync", "--cwd", dir]);
 
@@ -505,6 +510,13 @@ Body of the custom skill. Use /opsx:apply during implementation.
         const copy = await readFile(join(dir, `${platformDir}/skills/create-payment-flow/SKILL.md`), "utf8");
         assert.match(copy, /create-payment-flow/);
         assert.match(copy, /\/opsx-apply/);
+
+        const reference = await readFile(
+          join(dir, `${platformDir}/skills/create-payment-flow/references/provider-rules.md`),
+          "utf8",
+        );
+        assert.match(reference, /\/opsx-apply/);
+        assert.match(reference, /AGENTS\.md/);
       }
 
       // Index entry generated from the frontmatter.
@@ -525,6 +537,17 @@ Body of the custom skill. Use /opsx:apply during implementation.
       // Second sync is a no-op (idempotent).
       const { stdout } = await execFileAsync(process.execPath, [bin, "sync", "--cwd", dir]);
       assert.match(stdout, /everything already in sync/);
+
+      await unlink(join(dir, ".codex/skills/create-payment-flow/references/provider-rules.md"));
+      let checkError = null;
+      try {
+        await execFileAsync(process.execPath, [bin, "sync", "--cwd", dir, "--check"]);
+      } catch (error) {
+        checkError = error;
+      }
+      assert.ok(checkError, "sync --check should detect missing derived skill resources");
+      assert.equal(checkError.code, 1);
+      assert.match(checkError.stdout, /derived skill resource out of sync with canonical/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -1,7 +1,8 @@
 // `orbit sync` — reconcile everything the harness derives from its sources of truth:
 //
-// 1. Skill copies: `.claude/skills/<id>/SKILL.md` is canonical; the Cursor/OpenCode/Codex copies
-//    are derived with platform transforms (/opsx: -> /opsx-, CLAUDE.md -> AGENTS.md).
+// 1. Skill copies: `.claude/skills/<id>/SKILL.md` and sibling resource files are canonical; the
+//    Cursor/OpenCode/Codex copies are derived with platform transforms (/opsx: -> /opsx-,
+//    CLAUDE.md -> AGENTS.md).
 // 2. Agent files: frontmatter (md) / header keys (TOML) are regenerated from the capability
 //    presets + the project's model config; bodies stay project-owned.
 // 3. The `builder-routing` managed block inside orbit-builder is regenerated from skill
@@ -13,7 +14,7 @@
 // is out of sync — the CI drift gate.
 
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import {
   ORBIT_SKILLS,
   PLATFORM_AGENT_EXT,
@@ -125,6 +126,14 @@ export async function computeSyncPlan(options) {
         platformizeBody(skill.text, tool),
         "derived skill copy out of sync with canonical",
       );
+      for (const resource of skill.resources) {
+        await planWrite(
+          changes,
+          join(root, dir, skill.id, resource.path),
+          platformizeBody(resource.text, tool),
+          "derived skill resource out of sync with canonical",
+        );
+      }
     }
   }
 
@@ -225,15 +234,60 @@ async function listCanonicalSkills(root) {
     if (!entry.isDirectory() || isExcludedSkillId(entry.name)) {
       continue;
     }
-    const text = await readTextOrNull(join(dir, entry.name, "SKILL.md"));
+    const skillDir = join(dir, entry.name);
+    const text = await readTextOrNull(join(skillDir, "SKILL.md"));
     if (text === null) {
       continue;
     }
-    skills.push({ id: entry.name, text, meta: parseFrontmatter(text) });
+    skills.push({
+      id: entry.name,
+      text,
+      meta: parseFrontmatter(text),
+      resources: await listSkillResourceFiles(skillDir),
+    });
   }
 
   skills.sort((a, b) => a.id.localeCompare(b.id));
   return skills;
+}
+
+async function listSkillResourceFiles(skillDir, currentDir = skillDir) {
+  let entries;
+  try {
+    entries = await readdir(currentDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const files = [];
+  for (const entry of entries) {
+    if (entry.name === ".DS_Store") {
+      continue;
+    }
+
+    const absolutePath = join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listSkillResourceFiles(skillDir, absolutePath)));
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const resourcePath = relative(skillDir, absolutePath);
+    if (resourcePath === "SKILL.md") {
+      continue;
+    }
+
+    const text = await readTextOrNull(absolutePath);
+    if (text !== null) {
+      files.push({ path: resourcePath, text });
+    }
+  }
+
+  files.sort((a, b) => a.path.localeCompare(b.path));
+  return files;
 }
 
 // The configured `tools:` list in orbit.config.yaml wins over the CLI default, so sync never

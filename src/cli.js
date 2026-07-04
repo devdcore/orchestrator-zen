@@ -15,8 +15,8 @@ Usage:
 Commands:
   init            Install the Orbit harness layer in the current project.
   sync            Reconcile derived files from their sources of truth: propagate the canonical
-                  .claude skill copies to the other platforms, regenerate agent frontmatter and
-                  the builder routing block, and rebuild the skill index + registry.
+                  .claude skill copies and resources to the other platforms, regenerate agent
+                  frontmatter and the builder routing block, and rebuild the skill index + registry.
                   With --check, write nothing and exit non-zero on drift (CI gate).
   doctor          Inspect Git, OpenSpec, skills, sync drift, and Orbit project files.
   refresh-skills  Deprecated alias of sync.
