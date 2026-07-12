@@ -334,6 +334,18 @@ Add entries in reverse chronological order.
   subagentes reales; ya no hay fallback inline para los roles.
 - **Status**: fixed.
 
+### 2026-07-12 — Effort de razonamiento configurable por subagente Codex
+
+- **Nuevo override portable**: `models.agents.<role>.reasoning_effort.codex` se conserva en
+  `orbit.config.yaml` y se genera como `model_reasoning_effort` en `.codex/agents/<role>.toml`.
+- **Herencia explícita**: si el valor se omite, el agente mantiene el effort de la sesión padre;
+  Claude, Cursor y OpenCode no reciben metadata sin efecto.
+- **Drift gestionado**: `orbit sync` restaura cambios manuales del effort en el encabezado TOML y
+  `sync --check` los detecta igual que el modelo o el sandbox.
+- **Tests**: la suite de 17 pruebas pasa, incluida preservación con `init --force`, render Codex y
+  reparación de drift.
+- **Status**: fixed.
+
 ### YYYY-MM-DD — Template
 
 - **What was tested**: describe the scenario or project.

@@ -1,5 +1,10 @@
 import { PLATFORMS } from "./skills.js";
-import { defaultModelConfig, renderModelsSection, resolveAgentModelId } from "./models.js";
+import {
+  defaultModelConfig,
+  renderModelsSection,
+  resolveAgentModelId,
+  resolveAgentReasoningEffort,
+} from "./models.js";
 import { platformizeBody, renderBuilderRoutingRows, renderManagedBlock } from "./managed.js";
 
 export function agentsMdTemplate() {
@@ -430,6 +435,10 @@ export function codexAgentHeader(skill, modelConfig = defaultModelConfig()) {
   const model = resolveAgentModelId(modelConfig, skill, "codex");
   if (model && model !== "inherit") {
     lines.push(`model = ${tomlString(model)}`);
+  }
+  const reasoningEffort = resolveAgentReasoningEffort(modelConfig, skill, "codex");
+  if (reasoningEffort && reasoningEffort !== "inherit") {
+    lines.push(`model_reasoning_effort = ${tomlString(reasoningEffort)}`);
   }
   if (cap.codexSandbox) {
     lines.push(`sandbox_mode = ${tomlString(cap.codexSandbox)}`);

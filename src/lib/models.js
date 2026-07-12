@@ -4,11 +4,13 @@ import { ORBIT_SKILLS } from "./skills.js";
 
 // Model resolution for delegated roles.
 //
-// Two levers, both editable in the project's orbit.config.yaml and re-applied with
+// Three levers, all editable in the project's orbit.config.yaml and re-applied with
 // `orbit init --force`:
 //   1. A per-platform tier -> concrete model map (`models.tiers.<platform>.<tier>`).
 //   2. A per-agent tier (`models.agents.<role>.tier`) plus an optional per-agent, per-platform
 //      override (`models.agents.<role>.model.<platform>`) that beats the tier map.
+//   3. An optional per-agent reasoning-effort map
+//      (`models.agents.<role>.reasoning_effort.<platform>`). Currently only Codex emits it.
 //
 // Tiers map to concrete models on the platforms with a per-role model field: Claude and Cursor
 // (markdown `model:` frontmatter) and Codex (`model` in the TOML agent file). On OpenCode no
@@ -21,8 +23,8 @@ export const DEFAULT_TIER_MODELS = {
   // falls back to a compatible model automatically.
   cursor: { strong: "claude-opus-4-8", fast: "claude-4-5-haiku" },
   // Codex model IDs follow OpenAI's guidance: gpt-5.5 for demanding work, gpt-5.4-mini for fast,
-  // lower-cost subagents. Reasoning effort (model_reasoning_effort) is left to the session/auto;
-  // add it per agent in the .toml if you need finer control.
+  // lower-cost subagents. Reasoning effort is omitted by default so agents inherit the session;
+  // projects can opt into per-role values through `reasoning_effort.codex`.
   codex: { strong: "gpt-5.5", fast: "gpt-5.4-mini" },
 };
 
@@ -57,6 +59,16 @@ export function resolveAgentModelId(modelConfig, skill, platform) {
     return "inherit";
   }
   return modelConfig?.tiers?.[platform]?.[tier] ?? "inherit";
+}
+
+// Resolve a platform-specific reasoning effort for a delegated role. Codex custom-agent TOML
+// supports `model_reasoning_effort`; the other generated agent formats do not expose an equivalent
+// managed field, so their configured values are intentionally ignored.
+export function resolveAgentReasoningEffort(modelConfig, skill, platform) {
+  if (platform !== "codex") {
+    return "inherit";
+  }
+  return modelConfig?.agents?.[skill.id]?.reasoning_effort?.[platform] ?? "inherit";
 }
 
 // Deep-merge plain objects (override wins on scalars, recurse on nested maps). Used to overlay a
@@ -185,6 +197,8 @@ export function renderModelsSection(modelConfig) {
     "  #     tier: strong",
     "  #     model:",
     "  #       cursor: composer-2.5",
+    "  #     reasoning_effort:",
+    "  #       codex: high",
     "  # Overrides apply to the delegated subagent roles on Claude/Cursor/Codex. They have no effect",
     "  # on OpenCode (no per-role model) or on sdd-orchestrator (a main-thread skill, not a subagent).",
     "  agents:",
@@ -197,6 +211,12 @@ export function renderModelsSection(modelConfig) {
       lines.push("      model:");
       for (const [platform, model] of Object.entries(agent.model)) {
         lines.push(`        ${platform}: ${model}`);
+      }
+    }
+    if (isPlainObject(agent.reasoning_effort)) {
+      lines.push("      reasoning_effort:");
+      for (const [platform, effort] of Object.entries(agent.reasoning_effort)) {
+        lines.push(`        ${platform}: ${effort}`);
       }
     }
   }
