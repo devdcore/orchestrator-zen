@@ -1,5 +1,10 @@
 import { PLATFORMS } from "./skills.js";
-import { defaultModelConfig, renderModelsSection, resolveAgentModelId } from "./models.js";
+import {
+  defaultModelConfig,
+  renderModelsSection,
+  resolveAgentModelId,
+  resolveAgentReasoningEffort,
+} from "./models.js";
 import { platformizeBody, renderBuilderRoutingRows, renderManagedBlock } from "./managed.js";
 
 export function agentsMdTemplate() {
@@ -431,6 +436,10 @@ export function codexAgentHeader(skill, modelConfig = defaultModelConfig()) {
   if (model && model !== "inherit") {
     lines.push(`model = ${tomlString(model)}`);
   }
+  const reasoningEffort = resolveAgentReasoningEffort(modelConfig, skill, "codex");
+  if (reasoningEffort && reasoningEffort !== "inherit") {
+    lines.push(`model_reasoning_effort = ${tomlString(reasoningEffort)}`);
+  }
   if (cap.codexSandbox) {
     lines.push(`sandbox_mode = ${tomlString(cap.codexSandbox)}`);
   }
@@ -626,6 +635,14 @@ Report each finding with: severity (CRITICAL / HIGH / MEDIUM / LOW), location (\
 - Use transactions for multi-step writes that must be atomic.
 - Consider generated client updates, seed data, and test fixtures.
 - Never hide destructive migration risk.`;
+  }
+
+  if (id === "stack-react-native") {
+    return `- Render strings only inside \`Text\`; never place raw text under \`View\`, \`Pressable\`, or other non-text primitives.
+- Use a virtualized list for repeated content instead of mapping rows in a \`ScrollView\`; keep rows lightweight with stable, primitive props.
+- Animate \`transform\` and \`opacity\` rather than layout properties, and keep gesture/animation work off the JS thread when the installed stack supports it.
+- Keep native dependencies in the mobile app's own package.json at a single version; do not add a native module without an approved need.
+- Verify platform behavior (safe areas, press states, navigation) on the target platforms; add component or end-to-end tests when behavior is visual or end-to-end.`;
   }
 
   if (id === "project-testing") {

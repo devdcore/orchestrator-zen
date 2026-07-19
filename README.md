@@ -17,7 +17,7 @@ Orbit is the **orchestration layer**. OpenSpec is the **SDD engine**.
 - The delegated roles (`orbit-pm-spec`, `orbit-scout`, `orbit-builder`, `orbit-qa-verifier`,
   `orbit-reviewer`) are installed as **real subagents** with isolated context windows on Claude,
   Cursor, OpenCode, and Codex. Claude/Cursor/OpenCode use markdown agent files; Codex uses TOML
-  agent files and requires explicit spawning. This keeps file reads, test output, and diffs out of
+  agent files, supports per-role Codex reasoning effort, and requires explicit spawning. This keeps file reads, test output, and diffs out of
   the main conversation — real token savings and a genuinely fresh-context review.
 - OpenSpec handles spec artifacts and implementation phases via `/opsx:` slash commands.
 - Orbit's `orbit-qa-verifier` role owns verification (completeness, correctness vs spec, acceptance
@@ -58,7 +58,7 @@ orbit init
 3. Run `npx openspec init` (non-interactive) to scaffold the `openspec/` directory and tool skills.
 4. Inject TDD rules into `openspec/config.yaml`.
 
-`stack-*` skills (`stack-nestjs`, `stack-nextjs`, `stack-prisma`) install only when their dependency
+`stack-*` skills (`stack-nestjs`, `stack-nextjs`, `stack-prisma`, `stack-react-native`) install only when their dependency
 is detected in `package.json`; `project-testing` / `project-ui` always install. A greenfield project
 installs no `stack-*` skill and prints a hint to re-run `orbit init` once the stack is added.
 

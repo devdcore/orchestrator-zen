@@ -370,7 +370,7 @@ rules:
       // No package.json present → no stack skills installed, hint shown.
       assert.match(stdout, /No stack skills installed/);
 
-      for (const stack of ["stack-nestjs", "stack-nextjs", "stack-prisma"]) {
+      for (const stack of ["stack-nestjs", "stack-nextjs", "stack-prisma", "stack-react-native"]) {
         try {
           await readFile(join(dir, `.claude/skills/${stack}/SKILL.md`), "utf8");
           assert.fail(`${stack} should not be installed in a greenfield project`);
@@ -410,8 +410,41 @@ rules:
       const nest = await readFile(join(dir, ".claude/skills/stack-nestjs/SKILL.md"), "utf8");
       assert.match(nest, /Nest\.js/);
 
-      // Next/Prisma not in deps → not installed.
-      for (const stack of ["stack-nextjs", "stack-prisma"]) {
+      // Next/Prisma/React Native not in deps → not installed.
+      for (const stack of ["stack-nextjs", "stack-prisma", "stack-react-native"]) {
+        try {
+          await readFile(join(dir, `.claude/skills/${stack}/SKILL.md`), "utf8");
+          assert.fail(`${stack} should not be installed when its dependency is absent`);
+        } catch (err) {
+          assert.equal(err.code, "ENOENT");
+        }
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("installs stack-react-native when Expo or React Native is detected", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "orbit-test-"));
+
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "t", dependencies: { expo: "^51", "react-native": "^0.74" } }),
+        "utf8",
+      );
+
+      const { stdout } = await execFileAsync(process.execPath, [bin, "init", "--cwd", dir, SKIP_OPENSPEC]);
+
+      assert.match(stdout, /Stack skills installed: stack-react-native/);
+
+      // Expo/React Native detected → installed with generic mobile guidance.
+      const rn = await readFile(join(dir, ".claude/skills/stack-react-native/SKILL.md"), "utf8");
+      assert.match(rn, /React Native/);
+      assert.match(rn, /Text/);
+
+      // Nest/Next/Prisma not in deps → not installed.
+      for (const stack of ["stack-nestjs", "stack-nextjs", "stack-prisma"]) {
         try {
           await readFile(join(dir, `.claude/skills/${stack}/SKILL.md`), "utf8");
           assert.fail(`${stack} should not be installed when its dependency is absent`);
@@ -669,13 +702,13 @@ Body of the custom skill. Use /opsx:apply during implementation.
       assert.match(config, /cursor:\n\s+strong: claude-opus-4-8/);
 
       // User edits the tier maps (strong -> gpt-5.5 on Cursor, fast -> gpt-5.4 on Codex) and adds
-      // a per-agent override (orbit-reviewer pinned to composer-2.5 on Cursor only).
+      // per-agent overrides: orbit-reviewer uses composer-2.5 on Cursor and high reasoning on Codex.
       config = config
         .replace("strong: claude-opus-4-8", "strong: gpt-5.5")
         .replace("    codex:\n      strong: gpt-5.5\n      fast: gpt-5.4-mini", "    codex:\n      strong: gpt-5.5\n      fast: gpt-5.4")
         .replace(
           "    orbit-reviewer:\n      tier: strong",
-          "    orbit-reviewer:\n      tier: strong\n      model:\n        cursor: composer-2.5",
+          "    orbit-reviewer:\n      tier: strong\n      model:\n        cursor: composer-2.5\n      reasoning_effort:\n        codex: high",
         );
       await writeFile(join(dir, "orbit.config.yaml"), config, "utf8");
 
@@ -686,6 +719,7 @@ Body of the custom skill. Use /opsx:apply during implementation.
       const reconfig = await readFile(join(dir, "orbit.config.yaml"), "utf8");
       assert.match(reconfig, /cursor:\n\s+strong: gpt-5\.5/);
       assert.match(reconfig, /cursor: composer-2\.5/);
+      assert.match(reconfig, /reasoning_effort:\n\s+codex: high/);
 
       // Tier edit applied: strong roles on Cursor now use gpt-5.5...
       const pmSpec = await readFile(join(dir, ".cursor/agents/orbit-pm-spec.md"), "utf8");
@@ -701,6 +735,21 @@ Body of the custom skill. Use /opsx:apply during implementation.
       // Codex fast-tier edit applied: scout now uses gpt-5.4.
       const scoutCodex = await readFile(join(dir, ".codex/agents/orbit-scout.toml"), "utf8");
       assert.match(scoutCodex, /model = "gpt-5\.4"/);
+
+      // Codex-only reasoning effort is rendered into the managed TOML header.
+      const reviewerCodexPath = join(dir, ".codex/agents/orbit-reviewer.toml");
+      let reviewerCodex = await readFile(reviewerCodexPath, "utf8");
+      assert.match(reviewerCodex, /model_reasoning_effort = "high"/);
+
+      // Sync restores effort drift just like model drift while preserving the agent body.
+      reviewerCodex = reviewerCodex.replace(
+        'model_reasoning_effort = "high"',
+        'model_reasoning_effort = "xhigh"',
+      );
+      await writeFile(reviewerCodexPath, reviewerCodex, "utf8");
+      await execFileAsync(process.execPath, [bin, "sync", "--cwd", dir]);
+      const reviewerCodexSynced = await readFile(reviewerCodexPath, "utf8");
+      assert.match(reviewerCodexSynced, /model_reasoning_effort = "high"/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

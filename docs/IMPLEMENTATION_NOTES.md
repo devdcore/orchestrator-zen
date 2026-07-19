@@ -59,7 +59,8 @@ The generated index remains metadata-only.
 - TDD is enforced via `openspec/config.yaml` injection (context + rules), not by modifying OpenSpec itself.
 - The OpenSpec expanded profile is intentionally NOT enabled: it is a machine-global, non-portable, non-scriptable setting (verified against the CLI). Orbit uses the default profile + `openspec validate`; verification is owned by `orbit-qa-verifier`. See FLOW_MAPPING.md → *Why No Expanded Profile*.
 - `stack-*` skills are installed by dependency detection from `package.json` (`stack-nestjs` ←
-  `@nestjs/*`, `stack-nextjs` ← `next`, `stack-prisma` ← `@prisma/client`/`prisma`). Generic
+  `@nestjs/*`, `stack-nextjs` ← `next`, `stack-prisma` ← `@prisma/client`/`prisma`,
+  `stack-react-native` ← `expo`/`react-native`). Generic
   `project-testing` / `project-ui` are always installed. Greenfield projects (no `package.json`)
   install no `stack-*` skill and get a hint to re-run. Detection runs before the OpenSpec step, so
   it reads the user's real `package.json`, not the minimal one `ensurePackageJson` may create. The

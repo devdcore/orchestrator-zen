@@ -136,6 +136,7 @@ Project skills (stack-detected):
 stack-nestjs    ← installed only if @nestjs/core | @nestjs/common is in package.json
 stack-nextjs    ← installed only if next is in package.json
 stack-prisma    ← installed only if @prisma/client | prisma is in package.json
+stack-react-native ← installed only if expo | react-native is in package.json
 project-testing ← always (generic)
 project-ui      ← always (generic)
 ```
@@ -197,7 +198,9 @@ for the quality-critical roles (`orbit-pm-spec`, `orbit-qa-verifier`, `orbit-rev
 the platforms with a per-role model field — via the editable per-platform map
 `models.tiers.<platform>` (defaults: `strong` → Opus / `gpt-5.5`, `fast` → Haiku / `gpt-5.4-mini`),
 with an optional per-agent override `models.agents.<role>.model.<platform>`. Edit the map and re-run
-`orbit init --force` to apply; your edits are preserved. On OpenCode the roles run in the session's
+`orbit init --force` to apply; your edits are preserved. Codex additionally supports a per-role
+`models.agents.<role>.reasoning_effort.codex` value, rendered as `model_reasoning_effort` in the
+agent TOML; omitted values inherit the parent session. On OpenCode the roles run in the session's
 model (see HARNESS_DESIGN.md → *Subagents And Context Isolation*). The `sdd-orchestrator` is a
 main-thread skill, so it always runs in the session's model.
 

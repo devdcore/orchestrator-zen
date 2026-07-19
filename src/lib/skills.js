@@ -148,6 +148,14 @@ export const PROJECT_SKILLS = [
     pathGlobs: ["prisma/**", "**/*.prisma"],
   },
   {
+    id: "stack-react-native",
+    type: "project-stack",
+    delegation: "skill",
+    summary: "React Native / Expo conventions for screens, components, lists, animations, native dependencies, and mobile platform behavior.",
+    useWhen: ["touching React Native or Expo mobile files", "creating screens, components, lists, or animations", "using native modules or handling mobile performance"],
+    pathGlobs: ["apps/mobile/**", "**/*.native.ts", "**/*.native.tsx"],
+  },
+  {
     id: "project-testing",
     type: "project-quality",
     delegation: "skill",
@@ -185,6 +193,7 @@ export const STACK_DETECTION = {
   "stack-nestjs": ["@nestjs/core", "@nestjs/common"],
   "stack-nextjs": ["next"],
   "stack-prisma": ["@prisma/client", "prisma"],
+  "stack-react-native": ["expo", "react-native"],
 };
 
 export function allDefaultSkills() {

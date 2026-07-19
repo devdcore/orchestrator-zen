@@ -49,7 +49,7 @@ In a target project, `orbit init`:
    - `docs/orbit/handoff.md`: active interrupted work only.
    - `docs/orbit/skills/index.md`: compact skill metadata (discovery only).
    - `.codex/skills/`, `.claude/skills/`, `.cursor/skills/`, `.opencode/skills/`: platform skill adapters.
-     `stack-*` skills (`stack-nestjs`, `stack-nextjs`, `stack-prisma`) are written only when their
+     `stack-*` skills (`stack-nestjs`, `stack-nextjs`, `stack-prisma`, `stack-react-native`) are written only when their
      dependency is detected in the project's `package.json`; the generic `project-testing` /
      `project-ui` skills are always written. In a greenfield project no `stack-*` skill is written
      and `orbit init` prints a hint to re-run once the stack is in place. The generated
@@ -58,7 +58,7 @@ In a target project, `orbit init`:
      definitions for the delegated roles (`orbit-pm-spec`, `orbit-scout`, `orbit-builder`,
      `orbit-qa-verifier`, `orbit-reviewer`). Claude/Cursor/OpenCode use markdown with YAML
      frontmatter; Codex uses standalone TOML files (`name`/`description`/`developer_instructions` +
-     optional `model`/`sandbox_mode`). The inline role skills are pruned on every agent-capable
+     optional `model`/`model_reasoning_effort`/`sandbox_mode`). The inline role skills are pruned on every agent-capable
      platform so each role lives on a single path. Codex only spawns subagents on explicit request.
    - `.orbit/`: ignored cache and registry.
 
@@ -118,6 +118,11 @@ tier is informational there and the quality lever is the session model plus the 
 or unavailable Cursor model falls back to a compatible one automatically. Per-provider model mapping
 for OpenCode was deliberately not pursued: the active model is runtime-switchable, its config is often
 machine-global (non-portable), and a tier→model table per provider would be perpetual maintenance.
+
+Codex roles may also declare `models.agents.<role>.reasoning_effort.codex`. Orbit renders it as
+`model_reasoning_effort` in the managed TOML header and preserves it across `init --force` and
+`sync`. When omitted, Codex inherits the parent session effort. No effort field is emitted for
+Claude, Cursor, or OpenCode because their agent file formats do not expose the same managed setting.
 
 ## Project Roadmap
 
