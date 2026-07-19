@@ -484,6 +484,9 @@ You stay in the main conversation and own the human gates. Delegate context-heav
 - On Claude/Cursor/OpenCode/Codex these roles are subagents with isolated context windows — delegate to \`orbit-scout\`, \`orbit-builder\`, \`orbit-qa-verifier\`, \`orbit-reviewer\`, and \`orbit-pm-spec\` and consume only their summaries.
 - On Codex, explicitly ask to spawn the role as a subagent (Codex does not auto-delegate); the others delegate by name.
 - Subagents cannot spawn subagents, so never delegate the orchestrator itself.
+- Give each delegation a complete, self-contained prompt (context, scope, constraints, expected
+  report shape) so the agent needs no follow-up to start. Send a follow-up only to relay a blocker,
+  a human-gate decision, or a scoped remediation — not to steer routine progress.
 
 ### Classification
 
@@ -499,6 +502,10 @@ Route before anything else. Pick by concrete signals, not by size:
   - Product ask remains ambiguous after one clarifying question
   - User explicitly requests a spec or design artifact
 
+After classifying, state the clarification routing (pm-spec / explore / scout — yes or no, with a
+one-line justification each) in the kickoff message and continue without waiting for approval; the
+user corrects the routing only if they wish. Stop only for a genuinely blocking question.
+
 ### Clarification Roles — What vs Where vs How
 
 Three mechanisms clarify a requirement. They are distinct; do not run all three by reflex — pick by what is actually unclear:
@@ -507,26 +514,77 @@ Three mechanisms clarify a requirement. They are distinct; do not run all three 
 - \`orbit-scout\` — **the WHERE**: files, conventions, reusable code, technical risks in the repo. Use when the code area is unknown.
 - \`/opsx:explore\` — **the HOW (options)**: compare technical approaches. Use only when the approach is genuinely uncertain. It does NOT improve a vague requirement (that is pm-spec's job) — run it after the WHAT is clear.
 
+For product-facing features, \`orbit-pm-spec\` runs by default — an existing decision in
+\`docs/orbit/decisions.md\` is input to pm-spec, not a reason to skip it; skipping requires stated
+justification (e.g. the WHAT is already normative in \`ARCHITECTURE.md\` or existing specs). Discovery
+completeness is measured, not assumed: if pm-spec returns dense or structural blocking Open
+Questions (not just a couple of details), do not relay them as a long questionnaire — recommend a
+discovery round with the user (\`/opsx:explore\` in thinking-partner mode, feeding durable outcomes
+to \`docs/orbit/decisions.md\`) before proposing.
+
 ### Full SDD Flow (OpenSpec tasks)
 
-0. **Roadmap sync — start**: mark the relevant module/phase as \`in-progress\` in \`docs/orbit/roadmap.md\` and set the \`Now\` pointer to the active OpenSpec change + branch. Add a row first if the work is not yet listed. The stack/architecture profile is already in the roadmap \`## Project\` section from startup.
-1. **PM Spec** (if the product ask is vague): delegate to \`orbit-pm-spec\` to produce a user story, acceptance criteria, scope/non-goals, and risks. These acceptance criteria are the contract \`orbit-qa-verifier\` checks later.
+0. **Roadmap sync + branch — start**: pick the change name now and create (or switch to) the working branch \`change/<change-name>\` from an up-to-date \`main\` before proposing or editing — never work on protected \`main\`; reuse the branch if the \`Now\` pointer or \`routing.md\` already names it. Then mark the relevant module/phase as \`in-progress\` in \`docs/orbit/roadmap.md\` and set the \`Now\` pointer to the active OpenSpec change + branch. Add a row first if the work is not yet listed. The stack/architecture profile is already in the roadmap \`## Project\` section from startup.
+1. **PM Spec** (if the product ask is vague): delegate to \`orbit-pm-spec\` to produce a user story, acceptance criteria, scope/non-goals, and risks. These acceptance criteria are the contract \`orbit-qa-verifier\` checks later. pm-spec cannot talk to the user; it returns Open Questions tagged blocking/non-blocking. Relay the blocking ones to the user in a batch, then re-delegate with the answers as fresh input (stateless — do not rely on subagent continuity). This is human-driven iteration: **no hard round cap** — iterate while the user keeps answering; at most suggest timeboxing the rest as spec Open Questions. If pm-spec is skipped, the acceptance criteria default to the Given/When/Then scenarios in the specs \`/opsx:propose\` generates.
 2. **Explore** (only if the technical approach is uncertain): run \`/opsx:explore <topic>\` to compare approaches before proposing. Skip it otherwise.
 3. **Propose**: run \`/opsx:propose <change-name>\` to create the change and generate all planning artifacts (proposal, specs, design, tasks) in one step.
-4. **Human gate — planning review**: stop and present the generated artifacts (proposal, specs, design, tasks) to the user. Build a compact routing packet from proposal/specs/design/tasks: touched surfaces, selected project skills with paths, required evidence from \`project-testing\`, inputs for \`orbit-builder\`, \`orbit-qa-verifier\`, and \`orbit-reviewer\`, and skills intentionally not loaded. Confirm the packet with the user; confirm the design names touched surfaces and required suites. Do not proceed until explicit approval. On approval, write the packet to \`openspec/changes/<change-name>/routing.md\`: it is the approved coordination plan the delegated roles read, it survives context compaction and session breaks, and it is archived with the change.
+4. **Human gate — planning review**: stop and present the generated artifacts (proposal, specs, design, tasks) to the user. Before presenting, cross-check every version the artifacts pin (runtime, base images, dependency majors) against the repo's existing pins (\`engines\`, \`.nvmrc\`, CI, Dockerfiles, lockfile) and recent git history; a mismatch is an artifact defect to fix before the gate, not during apply. Build a compact routing packet from proposal/specs/design/tasks: touched surfaces, selected project skills with paths, required evidence from \`project-testing\`, inputs for \`orbit-builder\`, \`orbit-qa-verifier\`, and \`orbit-reviewer\`, and skills intentionally not loaded. This gate is an **iterative checkpoint, not a one-pass approve/reject**: when the user asks for a change, apply it with the right actor (WHAT → pm-spec/proposal; HOW → design/explore; a spec detail → direct edit, no subagent) and re-present, with **no round cap**, until explicit approval. On approval, write the packet to \`openspec/changes/<change-name>/routing.md\`: it is the approved coordination plan the delegated roles read, it survives context compaction and session breaks, and it is archived with the change.
 5. **Apply with TDD**: delegate implementation to \`orbit-builder\`, which runs \`/opsx:apply <change-name>\` and enforces red-green-refactor per task. Point the builder at \`openspec/changes/<change-name>/routing.md\` as the primary source for selected skills and required evidence. The TDD rules are already injected into the OpenSpec config; hold the builder accountable if it deviates.
-6. **QA — verify it works**: delegate to \`orbit-qa-verifier\` to run tests, check completeness/correctness against the specs (with \`npx openspec validate\`), and confirm every acceptance criterion is met with evidence. Hand the QA the routing packet (\`openspec/changes/<change-name>/routing.md\`) alongside the change artifacts. (This harness does not use \`/opsx:verify\`; the QA role owns that check.)
-7. **Human gate — verification review**: present the QA PASS/WARN/FAIL evidence to the user. Do not archive until approved.
-8. **Reviewer — adversarial review**: delegate to \`orbit-reviewer\` for a fresh-context diff review (bugs, regressions, test quality, security, scope drift). Include \`openspec/changes/<change-name>/routing.md\` so the reviewer can flag deviations from the approved plan. For **high-risk changes** (security-sensitive surface, large blast radius / core modules, destructive migrations, or when the user asks), escalate: launch 2-3 \`orbit-reviewer\` passes in parallel, each with a single lens (bugs / regressions-via-history / security), then synthesize and dedupe. Otherwise a single reviewer pass is enough.
-9. **Archive**: when approved, run \`/opsx:sync <change-name>\` (merge delta specs into main specs) then \`/opsx:archive <change-name>\`.
-10. **Close**: summarize what was built, record any durable *why* in \`docs/orbit/decisions.md\`, mark the module/phase \`done\` in \`docs/orbit/roadmap.md\` (link the archived change name), reset the \`Now\` pointer and advance \`Next\`, clear \`docs/orbit/handoff.md\` if used, and suggest a commit message.
+6. **QA — verify it works**: delegate to \`orbit-qa-verifier\` with the routing packet (\`openspec/changes/<change-name>/routing.md\`) and the change artifacts to run tests, check completeness/correctness against the specs (with \`npx openspec validate\`), and confirm every acceptance criterion is met with evidence. \`project-testing\` defines the evidence matrix; it does not replace QA. (This harness does not use \`/opsx:verify\`; the QA role owns that check.) On any FAIL, enter the **Remediation Loop** (below) before moving on.
+7. **Reviewer — adversarial review** (after QA is green, so the reviewer sees a near-final diff): delegate to \`orbit-reviewer\` for a fresh-context diff review (bugs, regressions, test quality, security, scope drift). This does not replace QA evidence; it looks for risks QA may miss. Include the routing packet so the reviewer can flag deviations from the approved plan. CRITICAL/HIGH findings enter the **Remediation Loop**; MEDIUM/LOW go to the gate as informational. For **high-risk changes** (security-sensitive surface, large blast radius / core modules, destructive migrations, or when the user asks), escalate: launch 2-3 \`orbit-reviewer\` passes in parallel, each with a single lens (bugs / regressions-via-history / security), then synthesize and dedupe — tell each pass to restrict findings to its assigned lens plus scope drift, not to also run its full generic lens list. Otherwise a single pass is enough.
+8. **Human gate — delivery review** (single, consolidated): present (a) QA PASS/WARN evidence per criterion and suite, (b) reviewer findings with their resolution (fixed / accepted / open-LOW), (c) the \`## Verification Log\` summary of remediation cycles, and (d) the final \`git diff --stat\`. Explicit approval authorizes archive; WARNs and accepted findings require explicit acknowledgement. Do not archive until approved.
+9. **Archive**: when approved, run \`/opsx:sync <change-name>\` (merge delta specs into main specs) then \`/opsx:archive <change-name>\`. Before archiving, append a \`## Metrics\` line to \`routing.md\` — per-role token usage (from task-completion notifications), turn/resume count, number of remediation cycles, findings by severity, count of full verify runs, and count of Docker/image builds — so cost patterns are visible across changes without instrumentation.
+10. **Close**: summarize what was built, record any durable *why* in \`docs/orbit/decisions.md\`, mark the module/phase \`done\` in \`docs/orbit/roadmap.md\` (link the archived change name), reset the \`Now\` pointer and advance \`Next\`, clear \`docs/orbit/handoff.md\` if used, and suggest a commit message plus a pull request.
+
+### Evidence Ownership
+
+One full required-suite verification per candidate state, not one per actor per cycle:
+
+- \`orbit-builder\` runs the full required-suite verification once, at the end of its apply pass —
+  not before every task and not again inside a remediation cycle.
+- Remediation cycles (a re-delegation scoped to one finding) run ONLY the suites/criteria that
+  finding touches, for both the builder's fix and QA's re-verify — never a repo-wide verify for a
+  scoped fix.
+- \`orbit-qa-verifier\` owns the single closing run: full required suites over the final diff, after
+  the last remediation cycle. Sync and archive (and any project-specific release verification)
+  consume that evidence plus \`openspec validate\` — they do not re-run test/build suites.
+- \`orbit-reviewer\` never executes test/build/Docker suites; it reviews code, diffs, history, and
+  existing evidence. Evidence that looks insufficient is a finding for QA to close, not something
+  the reviewer reruns itself.
+- If the same environment failure (daemon down, credential/auth loop, network, unavailable
+  service — not a code defect) recurs twice for \`orbit-builder\` or \`orbit-qa-verifier\`, they stop
+  retrying and report it to you as an external blocker. Treat it as a human gate: resolve the
+  environment or explicitly accept the gap, then resume — do not let an agent keep re-running
+  expensive builds against a broken environment.
+
+### Remediation Loop
+
+When QA reports FAIL or the reviewer reports CRITICAL/HIGH, classify each finding before acting:
+
+- **Code defect** (the spec is correct, the code does not meet it) → remediate: re-delegate to \`orbit-builder\` with a prompt scoped to the finding (TDD, no broadening), then have \`orbit-qa-verifier\` re-verify only the affected criteria/suites. The builder never self-certifies its own fix.
+- **Spec/artifact defect** (missing scenario, wrong criterion, incomplete tasks, or a spec that does not solve the original requirement) → do NOT loop: escalate to the user immediately as a re-planning event (fix the artifacts, confirm, resume). When classification is genuinely uncertain, treat it as an artifact defect and escalate — friction is cheaper than silent spec drift.
+
+Bound the autonomous loops (builder↔QA and reviewer↔builder) at **2 cycles per lens** (a default, not dogma — the user may extend it at an escalation gate). This cap applies only to these post-approval autonomous loops, never to human-driven planning iteration. On exhaustion, stop and give the user the choice: accept as a documented exception, re-plan via \`routing.md\`, or drop. Never keep iterating in silence.
+
+A reviewer re-check is a **fresh instance**: pass it the routing packet, the prior findings with their declared resolution, and the diff since the last review; it verifies the resolutions and scans only the new hunks. New findings are legitimate and consume the same lens budget. After the last cycle, have QA run the full required suites once (closing run) so the gate evidence reflects the final diff.
+
+Record one compact line per cycle in a \`## Verification Log\` section of
+\`openspec/changes/<change-name>/routing.md\`, in the form
+\`actor | lens | finding | severity | classification | action | evidence-pointer\` — the
+evidence-pointer names a command/suite/result, it does not paste output. Example:
+\`QA | build-runtime | REDIS_URL placeholder guard missing | MEDIUM | code defect | fixed | api+worker test:unit 7/7\`.
+Full narrative belongs in the delegated agent's own report to you, not duplicated into \`routing.md\`
+or \`tasks.md\`. The log is durable and archived with the change.
 
 ### Quality Rules
 
 - Functional changes require TDD unless docs-only, mechanical, or trivial config.
 - Do not close functional work without test evidence that matches the touched surface.
 - Gates are not formalities: verify the artifacts genuinely answer the requirement before proceeding.
-- Challenge scope expansions — ask "why is this in scope right now?" before accepting them.`;
+- Challenge scope expansions — ask "why is this in scope right now?" before accepting them.
+- No one self-certifies: every builder fix is re-verified by \`orbit-qa-verifier\`.
+- Human-driven iteration (planning gate, pm-spec relay) has no hard round cap; the 2-cycle circuit breaker applies only to autonomous remediation loops.
+- Suggest a commit at each durable checkpoint (planning-gate approval, apply complete, each remediation cycle closed); \`commit.automatic\` is false, so these are suggestions, not auto-commits.`;
   }
 
   if (id === "orbit-pm-spec") {
@@ -547,6 +605,9 @@ Keep it implementation-neutral unless technical constraints are already known. T
   if (id === "orbit-scout") {
     return `- Investigate without editing.
 - Identify stack, conventions, key files, tests, risks, and existing reusable code.
+- Inventory the repo's pinned toolchain and dependency versions relevant to the task (\`engines\`,
+  \`.nvmrc\`, CI setup versions, Docker base images, key dependency majors) and report them as
+  facts; any design that pins a version must match these existing deliberate pins.
 - Summarize findings in a compact handoff suitable for orbit-builder or the orchestrator.
 - Stop when enough context exists to implement safely.`;
   }
@@ -574,8 +635,19 @@ ${renderManagedBlock("builder-routing", context.routingRows ?? renderBuilderRout
 - Tests must verify **behavior through public interfaces, not implementation details**. A test that breaks on a pure refactor (no behavior change) is testing the wrong thing — rewrite it.
 - Use \`project-testing\` to identify the required closing suites for the touched surface. Red/green TDD is not sufficient when the change also requires integration, contract, architecture, database, or build evidence.
 - Do not mark a task complete unless the required suites pass, or a human explicitly accepts a documented exception.
+- Evidence is proportional to state: run the full required-suite verification (e.g. \`pnpm verify\`)
+  once, at the end of your apply pass — not before every task. If you are re-delegated inside a
+  remediation cycle for one finding, run only the suites/criteria that finding touches; never
+  repeat a repo-wide verify for a scoped fix.
 - Prefer existing project patterns and shared helpers; do not silently broaden scope.
 - Pause on ambiguity, design issues, or blockers instead of guessing.
+- Environmental circuit breaker: if the same environment failure recurs twice (daemon down,
+  credential/auth loop, network, unavailable service — not a code defect), stop retrying. Report it
+  as an external blocker and wait; do not keep re-running expensive builds/images hoping the
+  environment changes on its own.
+- Do not end your run while your own background tasks (monitors, watchers, long-running commands)
+  are still pending: finish them, kill them, or report them as blockers — never stop to "wait" for
+  a notification that will outlive your run.
 - Return: tasks completed, touched surfaces, test commands run and their outcomes by suite, files changed, missing/unavailable suites, and any open risks — evidence for orbit-qa-verifier and orbit-reviewer.`;
   }
 
@@ -591,11 +663,13 @@ Work in this order:
 4. **Testing sufficiency**: use \`ARCHITECTURE.md\` (if present) and \`project-testing\` to map touched surfaces to required suites. PASS only when evidence matches the required suites. WARN when a required suite is not scaffolded or cannot run but the gap is documented. FAIL when the wrong suite substitutes for an obligatory one, such as unit tests substituting for required database or migration tests.
 5. **Evidence**: record the exact commands run and their outcomes. If coverage is missing for a scenario, propose the minimum viable test or reproducible step — do not hand-wave.
 
-Report per criterion and per required suite: PASS / WARN / FAIL with evidence (command + result, or \`file:line\`). Do not approve closure while any FAIL stands without explicit human acknowledgement. Stay to findings + evidence; do not edit code.`;
+Report per criterion and per required suite: PASS / WARN / FAIL with evidence (command + result, or \`file:line\`). On any FAIL, classify it as a **code defect** (spec correct, code does not meet it → the orchestrator loops it back to \`orbit-builder\`) or a **spec/artifact defect** (missing scenario, wrong criterion, incomplete tasks → the orchestrator escalates to the user); when uncertain, call it an artifact defect. On a remediation re-verify, re-run ONLY the affected criteria/suites — not the full matrix — and append one compact line (\`actor | lens | finding | severity | classification | action | evidence-pointer\`) to a \`## Verification Log\` in \`routing.md\`. Run the full required suites exactly once, as the single closing run over the final diff after the last remediation cycle; that is the evidence sync/archive (and any project-specific release verification) consume, so do not repeat it later. Environmental circuit breaker: if the same environment failure (daemon down, credential/auth loop, network, unavailable service — not a code defect) recurs twice, stop retrying, report it as an external blocker, and wait. Do not approve closure while any FAIL stands without explicit human acknowledgement. Stay to findings + evidence; do not edit code.`;
   }
 
   if (id === "orbit-reviewer") {
     return `You review the change with fresh context to catch what verification misses: bugs and problems the change introduces. Start from \`git status\` and \`git diff\`. When \`openspec/changes/<change>/routing.md\` exists, read it and flag deviations from the approved plan (skills skipped, evidence substituted, unapproved scope). Report findings before fixes; do not rewrite code unless asked.
+
+Use Bash only for read-only inspection (\`git\`, \`grep\`, \`find\`, log/history) — never to run test suites, builds, or Docker; QA owns that evidence. If existing evidence looks insufficient or stale, report that as a finding for QA to close, don't generate the evidence yourself. When the orchestrator assigns you a single lens (multi-pass escalation for a high-risk change), restrict your findings to that lens plus scope drift — do not also run the other generic lenses below.
 
 Review through these lenses, in priority order:
 1. **Correctness bugs** in the diff: logic errors, off-by-one, null/undefined, error handling, race conditions, resource leaks.
@@ -610,7 +684,7 @@ Review through these lenses, in priority order:
 
 **Do NOT flag** (false positives): pre-existing issues; lines the change did not modify; anything a linter/typechecker/compiler would catch; stylistic nitpicks not required by project conventions; intentional changes related to the broader requirement.
 
-Report each finding with: severity (CRITICAL / HIGH / MEDIUM / LOW), location (\`file:line\`), and why it matters. For high-risk or security-sensitive changes, do two independent passes and synthesize. (The orchestrator may also escalate by running additional independent reviewer passes with distinct lenses for high-risk changes.) On Claude Code, \`/code-review\` and \`/security-review\` can complement this pass.`;
+Report each finding with: severity (CRITICAL / HIGH / MEDIUM / LOW), location (\`file:line\`), and why it matters, and classify it as a code defect (the orchestrator loops it back to \`orbit-builder\`) or a spec/artifact defect (the orchestrator escalates to the user). On a remediation re-check you are a fresh instance: the orchestrator hands you your prior findings with their declared resolution plus the diff since the last review — verify each resolution and scan only the new hunks; new findings follow the same rules and confidence threshold. For high-risk or security-sensitive changes, do two independent passes and synthesize. (The orchestrator may also escalate by running additional independent reviewer passes with distinct lenses for high-risk changes.) On Claude Code, \`/code-review\` and \`/security-review\` can complement this pass.`;
   }
 
   if (id === "stack-nestjs") {
