@@ -73,8 +73,8 @@ describe("orbit cli", () => {
       assert.match(claudeSkill, /human gate/);
       assert.match(claudeSkill, /TDD/);
       assert.match(claudeSkill, /orbit-builder/);
-      // Planning gate confirms touched surfaces/suites before approval (testing-sufficiency reinforcement)
-      assert.match(claudeSkill, /touched surfaces and required suites/);
+      // Planning gate cross-checks pinned versions before approval (testing-sufficiency reinforcement)
+      assert.match(claudeSkill, /cross-check every version the artifacts pin/);
 
       // AGENTS.md Quality section requires evidence to match the touched surface
       assert.match(agents, /touched surface/);
